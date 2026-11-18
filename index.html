@@ -139,6 +139,14 @@ body.staged{overflow:hidden}
 .h-speed{position:absolute;left:max(10px,env(safe-area-inset-left));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 44px);background:#000000a0;border-radius:10px;padding:4px 6px;font-size:12px}
 .h-speed button{background:#ffffff20;color:#fff;border-color:#ffffff50;box-shadow:none;padding:3px 8px;font-size:12px}
 .h-speed button.on{background:#fff;color:#000}
+.h-racers{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.h-rb{width:34px;height:34px;border-radius:50%;padding:0;border:2.5px solid var(--c);background:#fff;box-shadow:none;overflow:hidden;font-size:18px}
+.h-rb .face{width:100%;height:100%;display:block}
+.h-pop{position:absolute;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:5;padding:12px}
+.h-popin{background:#fff;color:var(--ink);border:3px solid var(--c);border-radius:18px;padding:12px;display:flex;gap:12px;align-items:flex-start;max-width:min(560px,96vw);max-height:92%;overflow:auto;box-shadow:0 10px 30px #000c}
+.h-popin .cardart{width:min(170px,38vw);flex:none;border-radius:10px}
+.h-poptxt{display:flex;flex-direction:column;gap:4px;font-size:14px}
+@media (orientation:portrait){ .h-popin{flex-direction:column;align-items:center;text-align:center} .h-popin .cardart{width:min(230px,60vw)} }
 .h-trk{position:absolute;top:0;right:0;bottom:0;width:min(340px,92vw);background:#fff;color:var(--ink);overflow:auto;padding:12px;box-shadow:-8px 0 24px #000a}
 .fs{position:fixed;inset:0;z-index:30;background:#f3e6d3}
 .fsboard{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:max(4px,env(safe-area-inset-top)) max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))}
@@ -186,8 +194,14 @@ body.staged{overflow:hidden}
 .tvmode .h-score span{font-size:16px}
 .tvmode .h-cap{font-size:18px}
 .tvmode .h-hint{font-size:20px}
- #vdock{position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:45;font:13px Nunito,system-ui,sans-serif;max-width:min(360px,calc(100vw - 20px))}
+ #vdock{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:45;font:13px Nunito,system-ui,sans-serif;max-width:min(360px,calc(100vw - 20px))}
 body.staged #vdock{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 90px)}
+.vhead{display:flex;align-items:center;gap:6px;margin:-2px 0 4px;cursor:grab;touch-action:none}
+.vgrip{color:var(--muted);font-size:16px;letter-spacing:-2px}
+.vb.x{padding:0 9px;font-size:16px;line-height:24px;box-shadow:none}
+.vfab{position:relative;touch-action:none}
+.vfab.live{box-shadow:0 0 0 3px #1e9e5a,0 4px 14px #0004}
+.vcount{position:absolute;right:-4px;top:-4px;background:var(--accent2);color:#fff;border-radius:999px;font-size:11px;min-width:18px;height:18px;line-height:18px;text-align:center}
 .vfab{width:46px;height:46px;border-radius:50%;padding:0;font-size:20px;background:#fff;box-shadow:0 3px 0 var(--ink),0 4px 14px #0004}
 .vcard{background:#fffffff2;color:var(--ink);border:2px solid var(--ink);border-radius:14px;padding:8px 10px;box-shadow:0 6px 18px #0005}
 .vcard p{margin:.3em 0}
@@ -195,7 +209,7 @@ body.staged #vdock{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 90px)}
 .vb{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
 .vb.main{background:var(--accent2);color:#fff}
 .vb.main.muted{background:#888}
-.vb.ptt{touch-action:none;user-select:none;-webkit-user-select:none;min-width:120px}
+.vb.ptt{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-width:120px}
 .vb.ptt.hot{background:var(--accent)}
 .vlist{display:flex;flex-wrap:wrap;gap:5px}
 .vp{border:1.5px solid var(--line);border-radius:999px;padding:2px 9px;background:#fff;transition:box-shadow .1s}
@@ -1189,6 +1203,8 @@ const A = {
     }catch(e){}
     render();
   },
+  closecard: ()=>{ S3.cardTi=null; render(); },
+  showcard: d=>{ S3.cardTi=+d.ti; render(); },
   trk: ()=>{ trackerOpen=!trackerOpen; render(); },
   invite: ()=>{
     const url = inviteLink();
@@ -1572,7 +1588,7 @@ function mountDie2(){
 }
 
 // ===== Voice chat (free, peer-to-peer WebRTC; Firebase only passes the connection details) =====
-const VC = {on:false, mic:false, ptt:false, talking:false, stream:null, peers:{}, present:{}, unsub:[], hb:null, ctx:null, meters:{}, open:false, gid:null, err:''};
+const VC = {min:false, pos:(()=>{ try{ return JSON.parse(localStorage.getItem('maDock')||'null'); }catch(e){ return null; } })(), on:false, mic:false, ptt:false, talking:false, stream:null, peers:{}, present:{}, unsub:[], hb:null, ctx:null, meters:{}, open:false, gid:null, err:''};
 const ICE = [{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
 function voiceAvailable(){ return !!(FB && gid && gid!=='local' && !local && window.RTCPeerConnection && view==='game'); }
 function vDoc(p){ return FB.db.doc('games/'+VC.gid+'/'+p); }
@@ -1613,8 +1629,9 @@ function voiceLeave(){
 }
 function setMicEnabled(){ if (VC.stream) VC.stream.getAudioTracks().forEach(t=>t.enabled = VC.talking); }
 function toggleMute(){ if (!VC.mic) return; VC.talking=!VC.talking; setMicEnabled(); presence(); updateDock(); }
-function pttDown(){ if (!VC.mic || !VC.ptt) return; VC.talking=true; setMicEnabled(); presence(); updateDock(); }
-function pttUp(){ if (!VC.mic || !VC.ptt) return; VC.talking=false; setMicEnabled(); presence(); updateDock(); }
+function pttShow(){ const b=document.querySelector('#vdock [data-v="ptt"]'); if (b){ b.classList.toggle('hot',VC.talking); b.textContent=VC.talking?'Talking…':'Hold to talk'; } }
+function pttDown(){ if (!VC.mic || !VC.ptt) return; VC.talking=true; setMicEnabled(); presence(); pttShow(); }
+function pttUp(){ if (!VC.mic || !VC.ptt) return; VC.talking=false; setMicEnabled(); presence(); pttShow(); }
 
 function pairId(a,b){ return a<b ? a+'__'+b : b+'__'+a; }
 function makePC(u){
@@ -1718,13 +1735,19 @@ function updateDock(){
     el.innerHTML = VC.open ? `<div class="vcard"><b>🎙️ Voice chat</b><p>Talk with the other players while you play. Free, straight between devices.</p>
         <div class="vrow"><button class="vb main" data-v="join">🎙️ Join with mic</button><button class="vb" data-v="listen">🔊 Just listen</button><button class="vb" data-v="close">✕</button></div>
         ${VC.err?`<p class="verr">${esc(VC.err)}</p>`:''}<p class="vsm">Same room? Use headphones, or only one person's voice on, to avoid echo.</p></div>`
-      : `<button class="vfab" data-v="open" title="Voice chat">🎙️</button>`;
-    return;
+      : `<button class="vfab" data-v="open" data-drag="1" title="Voice chat (drag to move)">🎙️</button>`;
+    placeDock(el); return;
   }
   el.className='on';
   const people = Object.values(VC.present);
+  if (VC.min){
+    const talking = VC.mic && VC.talking;
+    el.innerHTML = `<button class="vfab ${talking?'live':''}" data-v="max" data-drag="1" title="Voice chat (drag to move)">${VC.mic?(VC.talking?'🎙️':'🔇'):'🔊'}<span class="vcount">${people.length+1}</span></button>`;
+    placeDock(el); return;
+  }
   const st = u=>{ const P=VC.peers[u]; return !P||!P.pc ? 'connecting' : ({connected:'', connecting:'connecting', new:'connecting', failed:'can\'t connect', disconnected:'reconnecting'}[P.state]||''); };
   el.innerHTML = `<div class="vcard">
+    <div class="vhead" data-drag="1"><span class="vgrip">⠿</span><b>Voice</b><span class="grow"></span><button class="vb x" data-v="min" title="Shrink">–</button></div>
     <div class="vlist"><span class="vp" data-vu="me">${VC.mic?(VC.talking?'🎙️':'🔇'):'🔊'} You</span>${people.map(p=>`<span class="vp" data-vu="${esc(p.uid)}">${p.mic?'🎙️':'🔇'} ${esc(uname(p.uid,0))}${st(p.uid)?` <i>${st(p.uid)}</i>`:''}</span>`).join('') || '<span class="vsm">Waiting for others to join voice…</span>'}</div>
     <div class="vrow">
       ${VC.mic ? (VC.ptt ? `<button class="vb main ptt ${VC.talking?'hot':''}" data-v="ptt">${VC.talking?'Talking…':'Hold to talk'}</button>` : `<button class="vb main ${VC.talking?'':'muted'}" data-v="mute">${VC.talking?'🎙️ Mute':'🔇 Unmute'}</button>`)
@@ -1732,10 +1755,36 @@ function updateDock(){
       ${VC.needTap?`<button class="vb" data-v="unlock">🔈 Tap for sound</button>`:''}
       <button class="vb" data-v="leave">Leave voice</button></div>
     ${VC.err?`<p class="verr">${esc(VC.err)}</p>`:''}</div>`;
+  placeDock(el);
 }
+function placeDock(el){
+  const p = VC.pos; if (!p){ el.style.left=''; el.style.top=''; el.style.bottom=''; return; }
+  const w = el.offsetWidth||60, h = el.offsetHeight||60;
+  const x = Math.max(4, Math.min(innerWidth-w-4, p.x*innerWidth)), y = Math.max(4, Math.min(innerHeight-h-4, p.y*innerHeight));
+  el.style.left = x+'px'; el.style.top = y+'px'; el.style.bottom = 'auto';
+}
+window.addEventListener('resize', ()=>{ const el=document.getElementById('vdock'); if (el) placeDock(el); });
 function hookDock(el){
+  let drag=null;
+  el.addEventListener('contextmenu', e=>e.preventDefault());
+  el.addEventListener('pointerdown', e=>{
+    const h = e.target.closest('[data-drag]'); if (!h || e.target.closest('[data-v]:not([data-drag])')) return;
+    const r = el.getBoundingClientRect(); drag={id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, x0:e.clientX, y0:e.clientY, moved:false};
+    try{ h.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  el.addEventListener('pointermove', e=>{
+    if (!drag || e.pointerId!==drag.id) return;
+    if (!drag.moved && Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0)<6) return;
+    drag.moved=true; e.preventDefault();
+    VC.pos = {x:(e.clientX-drag.dx)/innerWidth, y:(e.clientY-drag.dy)/innerHeight}; placeDock(el);
+  });
+  const endDrag = e=>{ if (!drag || e.pointerId!==drag.id) return; if (drag.moved){ VC.justDragged=true; setTimeout(()=>VC.justDragged=false,50); try{ localStorage.setItem('maDock', JSON.stringify(VC.pos)); }catch(_){} } drag=null; };
+  el.addEventListener('pointerup', endDrag); el.addEventListener('pointercancel', endDrag);
   el.addEventListener('click', e=>{
+    if (VC.justDragged){ e.preventDefault(); return; }
     const b = e.target.closest('[data-v]'); if (!b) return; const v=b.dataset.v;
+    if (v==='min'){ VC.min=true; updateDock(); return; }
+    if (v==='max'){ VC.min=false; updateDock(); return; }
     if (v==='open'){ VC.open=true; updateDock(); }
     else if (v==='close'){ VC.open=false; updateDock(); }
     else if (v==='join') voiceJoin(true);
@@ -2271,10 +2320,17 @@ function releaseDie(g){
 }
 function tapAt(cx,cy){
   const p=planeHit(cx,cy,0); if (!p) return;
-  if (S3.holdUntil>now3()) return;
   let best=null, bd=.5;
-  for (const tg of S3.targets){ const [x,z]=spotXZ(G.race.track,posKey(G.race,tg.pos)); const d=Math.hypot(x-p[0],z-p[2]); if(d<bd){bd=d;best=tg;} }
-  if (!best) return;
+  if (!(S3.holdUntil>now3())) for (const tg of S3.targets){ const [x,z]=spotXZ(G.race.track,posKey(G.race,tg.pos)); const d=Math.hypot(x-p[0],z-p[2]); if(d<bd){bd=d;best=tg;} }
+  if (!best){
+    // tapped a racer? show its card
+    let pick=null, pd=46;
+    for (const k in S3.pieces){ const P=S3.pieces[k]; if (P.out || P.x===null) continue;
+      for (const pt of [[P.x,.05,P.z], P.wc||[P.x,.3,P.z]]){ const [sx,sy]=project3(pt); const d=Math.hypot(sx-cx,sy-cy); if (d<pd){ pd=d; pick=+k; } } }
+    if (pick!=null){ S3.cardTi = pick; render(); }
+    else if (S3.cardTi!=null){ S3.cardTi=null; render(); }
+    return;
+  }
   const R=G.race, P=S3.pieces[R.turn], seat=R.tokens[R.turn].seat;
   if (P){ const [x,z]=spotXZ(R.track,posKey(R,best.pos)); P.path=[{x,z,h:.6,d:.35}]; P.last=posKey(R,best.pos); P.dropped=true; }
   S3.targets=[];
@@ -2394,6 +2450,16 @@ function frame3(){
 }
 
 // ---- HUD (HTML over the canvas) ----
+function racerCardPop(t){
+  const r=R_(t.rid), S=G.seats[t.seat];
+  const st=t.out?'❌ out':t.fin?(t.fin===1?'🏆 1st':'🥈 2nd'):(t.pos===0?'at Start':'on space '+t.pos)+(t.tr?' · 😵 tripped':'');
+  return `<div class="h-pop" data-a="closecard"><div class="h-popin" style="--c:${S.color}">
+    ${ART[t.rid]?`<img class="cardart" src="${ART[t.rid]}" alt="">`:''}
+    <div class="h-poptxt"><div><b style="color:${S.color}">${esc(pname(t.seat))}</b> · ${st}</div>
+      <div class="cn">${r.e} ${esc(r.n)}</div><div class="ct">${esc(r.t)}</div>${r.x?`<div class="cx">${esc(r.x)}</div>`:''}
+      ${t.gained.map(g=>`<div class="ct">+ ${R_(g).e} <b>${esc(R_(g).n)}</b>: ${esc(R_(g).t)}</div>`).join('')}
+      <div class="small muted" style="margin-top:6px">Tap anywhere to close</div></div></div></div>`;
+}
 function hudHint(){
   const R=G.race; if (G.status!=='race') return '';
   if (S3.die.state==='roll') return '🎲 …';
@@ -2412,7 +2478,8 @@ function hudHint(){
 function renderHud(){
   const R=G.race;
   let h=`<div class="h-top"><div class="h-title"><b>Race ${G.raceNo+1}</b> · ${R.track==='wild'?'Wild Woods':'Mild Mile'}
-      <div class="h-score">${G.seats.map((x,i)=>`<span style="--c:${x.color}">${esc(pname(i))} <b>${x.points}</b></span>`).join('')}</div></div>
+      <div class="h-score">${G.seats.map((x,i)=>`<span style="--c:${x.color}">${esc(pname(i))} <b>${x.points}</b></span>`).join('')}</div>
+      <div class="h-racers">${R.tokens.map((t,i)=>t.out?'':`<button class="h-rb" style="--c:${G.seats[t.seat].color}" data-a="showcard" data-ti="${i}" title="${esc(R_(t.rid).n)}">${face(t.rid)}</button>`).join('')}</div></div>
     <div class="h-btns"><button class="hb ${trackerOpen?'on':''}" data-a="trk" title="Move tracker">📋</button><button class="hb ${S3.locked?'on':''}" data-a="lock" title="${S3.locked?'Unlock the board':'Lock the board in place'}">${S3.locked?'🔒':'🔓'}</button>${S3.locked?'':'<button class="hb" data-a="view3" title="Reset view">⟲</button>'}<button class="hb" data-a="view" title="Flat board">2D</button></div></div>
     <div class="h-cap" id="hcap"></div>`;
   if (G.status==='results'){
@@ -2426,6 +2493,7 @@ function renderHud(){
     const ctl=stageControls(); if (ctl) h+=`<div class="h-act">${ctl}</div>`;
   }
   if (G.seats.some((_,i)=>isBot(i)) && (local||isHost()) && G.status==='race') h+=`<div class="h-speed">${speedRow()}</div>`;
+  if (S3.cardTi!=null && R.tokens[S3.cardTi]) h+=racerCardPop(R.tokens[S3.cardTi]);
   if (trackerOpen) h+=`<div class="h-trk"><div class="row"><b class="grow">Move tracker</b><button class="ghost x" data-a="trk">✕</button></div>
     <div class="recent">${G.log.slice(-16).reverse().map(l=>`<div>${fmtLog(l)}</div>`).join('')}</div>
     <div class="rlist">${R.tokens.map(t=>{ const S=G.seats[t.seat]; const st=t.out?'❌ out':t.fin?(t.fin===1?'🏆 1st':'🥈 2nd'):(t.pos===0?'Start':'space '+t.pos)+(t.tr?' · 😵 tripped':'');
