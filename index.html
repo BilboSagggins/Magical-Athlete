@@ -2272,7 +2272,14 @@ function hookStage(){
     if (!VP3) return;
     const D=S3.die; let die=false;
     if (canThrow() && D.state==='idle' && !(S3.holdUntil>now3())){ const[sx,sy]=project3(D.p); die=Math.hypot(sx-e.clientX,sy-e.clientY)<70; }
-    gest={x0:e.clientX,y0:e.clientY,t0:now3(),moved:0,yaw:S3.cam.yaw,pitch:S3.cam.pitch,die,hist:[]};
+    // pick up my own piece when it has somewhere to go
+    let piece=false;
+    if (!die && S3.targets.length && !(S3.holdUntil>now3()) && G.race.turn>=0){
+      const P=S3.pieces[G.race.turn];
+      if (P && !P.path.length){ for (const pt of [[P.x,.05,P.z], P.wc||[P.x,.3,P.z]]){ const [sx,sy]=project3(pt); if (Math.hypot(sx-e.clientX,sy-e.clientY)<60) piece=true; } }
+    }
+    gest={x0:e.clientX,y0:e.clientY,t0:now3(),moved:0,yaw:S3.cam.yaw,pitch:S3.cam.pitch,die,piece,hist:[]};
+    if (piece){ const P=S3.pieces[G.race.turn]; gest.home=[P.x,P.z]; }
     if (die){ D.state='hold'; const p=planeHit(e.clientX,e.clientY,1.0); if(p) gest.hist.push([p,e.timeStamp||now3()]); }
   });
   cv.addEventListener('pointermove',e=>{
@@ -2280,6 +2287,12 @@ function hookStage(){
     if (pinch && ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); S3.cam.user=true; S3.cam.dist=clamp3(pinch.dist*pinch.d/Math.max(20,d), S3.fit*.3, S3.fit*1.6); return; }
     if (!gest) return;
     const dx=e.clientX-gest.x0, dy=e.clientY-gest.y0; gest.moved=Math.max(gest.moved,Math.hypot(dx,dy));
+    if (gest.piece){
+      if (gest.moved<6) return;
+      const P=S3.pieces[G.race.turn], hit=planeHit(e.clientX,e.clientY,.35);
+      if (P && hit){ P.dragging=true; P.path=[]; P.x=hit[0]; P.z=hit[2]; P.y=.35; S3.hover=nearTarget(hit[0],hit[2],.6); }
+      return;
+    }
     if (gest.die){
       const p=planeHit(e.clientX,e.clientY,1.0);
       if (p){ const [bx,bz]=dieBounds(); S3.die.p=[clamp3(p[0],-bx,bx),1.0,clamp3(p[2],-bz,bz)]; gest.hist.push([S3.die.p.slice(), e.timeStamp||now3()]); if (gest.hist.length>8) gest.hist.shift(); }
@@ -2293,6 +2306,18 @@ function hookStage(){
     if (!gest) return;
     const g=gest; gest=null;
     if (g.die){ releaseDie(g); return; }
+    if (g.piece && g.moved>=6){
+      const R=G.race, P=S3.pieces[R.turn]; S3.hover=null;
+      if (!P) return;
+      P.dragging=false;
+      const tg = nearTarget(P.x,P.z,.6);
+      if (tg && S3.targets.includes(tg)){
+        const [x,z]=spotXZ(R.track,posKey(R,tg.pos)); P.path=[{x,z,h:.12,d:.15}]; P.last=posKey(R,tg.pos); P.dropped=true;
+        const seat=R.tokens[R.turn].seat; S3.targets=[];
+        mutate(gg=>act(gg, seat, tg.a));
+      } else { P.path=[{x:g.home[0],z:g.home[1],h:.3,d:.3}]; }
+      return;
+    }
     if (g.moved<10 && now3()-g.t0<600) tapAt(e.clientX,e.clientY);
   };
   cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
@@ -2318,6 +2343,7 @@ function releaseDie(g){
   });
   render();
 }
+function nearTarget(x,z,r){ let best=null, bd=r; for (const tg of S3.targets){ const [tx,tz]=spotXZ(G.race.track,posKey(G.race,tg.pos)); const d=Math.hypot(tx-x,tz-z); if (d<bd){ bd=d; best=tg; } } return best; }
 function tapAt(cx,cy){
   const p=planeHit(cx,cy,0); if (!p) return;
   let best=null, bd=.5;
@@ -2383,7 +2409,7 @@ function frame3(){
   const rolling = S3.die.state==='roll' || S3.holdUntil>tn;
   const me = R.turn>=0 && R.tokens[R.turn] ? G.seats[R.tokens[R.turn].seat] : null;
   if (!rolling && me) for (const tg of S3.targets){
-    const [x,z]=spotXZ(track,posKey(R,tg.pos)); const k=.62+.06*Math.sin(time*5);
+    const [x,z]=spotXZ(track,posKey(R,tg.pos)); const k=(tg===S3.hover?.9:.62)+.06*Math.sin(time*5);
     drawT(S3.flat, M4.trs([x,.01,z],Q.id(),[k,1,k]), S3.tex.ring, [...hexRGB3(me.color),1], 0);
   }
   const yawQ=Q.axis([0,1,0],c.yaw);
@@ -2412,7 +2438,7 @@ function frame3(){
         hop = A.to ? Math.sin(Math.min(1,f*1.6)*Math.PI)*.35 + (f>.8?Math.sin((f-.8)/.2*Math.PI)*.06:0) : Math.sin(f*Math.PI)*.25;
         if (f>=1){ P.flip=A.to; P.flipA=null; } } }
     let sc=1; if (P.out){ const f=Math.min(1,(tn-P.outT)/600); sc=1-f; hop+=f*.4; if (f>=1) continue; }
-    const bob = P.cur && !P.path.length && !P.flipA && P.flip<.01 ? Math.abs(Math.sin(time*3))*.06 : 0;
+    const bob = P.cur && !P.dragging && !P.path.length && !P.flipA && P.flip<.01 ? Math.abs(Math.sin(time*3))*.06 : 0;
     const fl=P.flip, lift=P.y+hop+bob;
     // base puck
     drawL(S3.base, M4.trs([P.x, lift*(1-fl*.0), P.z], yawQ, [sc,sc,sc]), [...P.col,1]);
@@ -2471,8 +2497,8 @@ function hudHint(){
     if (o.needMM) return `${who}: predict the winner`;
     if (o.genius && geniusPick==null) return `${who}: predict your roll`;
     if (o.noMain) return `${who}: no main move this turn`;
-    return `${who}: pick up the die and throw it${S3.targets.length?' — or tap a glowing space':''}`; }
-  if (R.phase==='rolled'){ return `${who}: rolled <b>${R.ctx.roll}</b> — tap a glowing space to move${canThrow()?', or throw again':''}`; }
+    return `${who}: pick up the die and throw it${S3.targets.length?' — or drag your piece to a glowing space':''}`; }
+  if (R.phase==='rolled'){ return `${who}: rolled <b>${R.ctx.roll}</b> — drag your piece onto a glowing space (or tap it)${canThrow()?', or throw again':''}`; }
   return who;
 }
 function renderHud(){
