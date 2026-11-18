@@ -179,6 +179,30 @@ body.staged{overflow:hidden}
 .panel input#nick,.panel input#jcode{width:100%}
 .code{font-family:ui-monospace,Menlo,monospace;font-size:34px;letter-spacing:8px;color:var(--accent2);font-weight:800;margin:4px 0}
 .qr{width:150px;height:150px;image-rendering:pixelated;border-radius:10px;margin:4px auto 8px;display:block}
+.tvmode .code{font-size:72px;letter-spacing:14px}
+.tvmode .qr{width:240px;height:240px}
+.tvmode #app{max-width:1100px}
+.tvmode .h-title{font-size:22px}
+.tvmode .h-score span{font-size:16px}
+.tvmode .h-cap{font-size:18px}
+.tvmode .h-hint{font-size:20px}
+ #vdock{position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:45;font:13px Nunito,system-ui,sans-serif;max-width:min(360px,calc(100vw - 20px))}
+body.staged #vdock{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 90px)}
+.vfab{width:46px;height:46px;border-radius:50%;padding:0;font-size:20px;background:#fff;box-shadow:0 3px 0 var(--ink),0 4px 14px #0004}
+.vcard{background:#fffffff2;color:var(--ink);border:2px solid var(--ink);border-radius:14px;padding:8px 10px;box-shadow:0 6px 18px #0005}
+.vcard p{margin:.3em 0}
+.vrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.vb{padding:5px 10px;font-size:13px;box-shadow:0 2px 0 var(--ink)}
+.vb.main{background:var(--accent2);color:#fff}
+.vb.main.muted{background:#888}
+.vb.ptt{touch-action:none;user-select:none;-webkit-user-select:none;min-width:120px}
+.vb.ptt.hot{background:var(--accent)}
+.vlist{display:flex;flex-wrap:wrap;gap:5px}
+.vp{border:1.5px solid var(--line);border-radius:999px;padding:2px 9px;background:#fff;transition:box-shadow .1s}
+.vp i{color:var(--muted);font-size:11px}
+.vp.speaking{border-color:#1e9e5a;box-shadow:0 0 0 3px #1e9e5a55}
+.vsm{font-size:11px;color:var(--muted)}
+.verr{color:#b3261e;font-size:12px}
 .err{background:#ffe1e4;border:1.5px solid var(--accent);border-radius:10px;padding:8px 10px;margin-top:10px;font-size:13px}
 details summary{cursor:pointer;font-weight:700}
 .invite{background:#eef3ff;border:2px dashed var(--accent2);border-radius:12px;padding:8px 10px;margin-bottom:10px;display:flex;flex-direction:column;gap:4px}
@@ -1039,19 +1063,27 @@ function closeGame(){
   if (unsubGame) unsubGame(); if (unsubJoins) unsubJoins();
   unsubGame=unsubJoins=null; gid=null; doc=null; G=null; joins=[]; selPicks=[];
 }
-async function createTable(){
+async function createTable(tv){
   if (local){ G = newGame('local'); view='game'; gid='local'; return render(); }
-  if (!saveNickFromInput()) return;
+  if (!tv && !saveNickFromInput()) return;
   const id = genCode();
   busy=true; render();
   try{
-    const ng = newGame(me); ng.settings.pick = homePick;
+    const ng = newGame(me); ng.settings.pick = homePick; if (tv) ng.tv = true;
     await db.doc('games/'+id).set({created:Date.now(), host:me, status:'lobby', v:0, state:ng});
-    await db.doc('games/'+id+'/joins/'+me).set({uid:me, at:Date.now()});
+    if (!tv) await db.doc('games/'+id+'/joins/'+me).set({uid:me, at:Date.now()});
+    else screenMode();
     openGame(id);
   }catch(e){ toast(!FB && e.code==='invalid_argument' ? 'You need edit access to create a table — ask the owner to share it with you as an Editor.' : 'Could not create table: '+(e.message||e.code)); }
   busy=false; render();
 }
+// A shared screen (TV): big text, kept awake, no seat at the table.
+let screenOn = false, wakeLock = null;
+function screenMode(){
+  screenOn = true; document.body.classList.add('tvmode');
+  try{ if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l=>{ wakeLock=l; }).catch(()=>{}); }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if (screenOn && document.visibilityState==='visible'){ try{ navigator.wakeLock && navigator.wakeLock.request('screen').then(l=>{ wakeLock=l; }).catch(()=>{}); }catch(e){} } });
 function genCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ'; let c=''; for(let i=0;i<5;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
 function saveNickFromInput(){
   const el = document.getElementById('nick'); if (!el || !FB) return true;
@@ -1059,16 +1091,17 @@ function saveNickFromInput(){
   if (!v){ joinErr='Enter your name first.'; render(); return false; }
   setMyName(v); return true;
 }
-async function joinByCode(code){
+async function joinByCode(code, watch){
   joinErr=''; code=String(code||'').toUpperCase().trim();
   if (!/^[A-Z0-9]{5,6}$/.test(code)){ joinErr='Room codes are 5 letters.'; render(); return; }
-  if (!saveNickFromInput()) return;
+  if (!watch && !saveNickFromInput()) return;
   busy=true; render();
   try{
     let snap = await db.doc('games/'+code).get();
     if (!snap.exists){ snap = await db.doc('games/'+code.toLowerCase()).get(); if (snap.exists) code = code.toLowerCase(); }
     if (!snap.exists){ joinErr='No game with code '+code+'.'; return; }
-    if (snap.data().status==='lobby') await db.doc('games/'+code+'/joins/'+me).set({uid:me, at:Date.now()});
+    if (watch) screenMode();
+    else if (snap.data().status==='lobby') await db.doc('games/'+code+'/joins/'+me).set({uid:me, at:Date.now()});
     pendingCode=''; openGame(code);
   }catch(e){ joinErr = (!FB && e.code==='invalid_argument') ? 'You need edit access to join. Ask the owner to share this page with you as an Editor.' : 'Could not join ('+(e.code||e.message)+').'; }
   finally{ busy=false; render(); }
@@ -1121,6 +1154,8 @@ function mySeats(){ return G ? G.seats.map((_,i)=>i).filter(i=>!isBot(i) && (loc
 // ---------- actions ----------
 const A = {
   create: ()=>{ if (netOK) local=false; createTable(); },
+  createTV: ()=>{ if (netOK) local=false; createTable(true); },
+  watchCode: ()=>{ const el=document.getElementById('jcode'); joinByCode(el?el.value:'', true); },
   joinCode: ()=>{ const el=document.getElementById('jcode'); joinByCode(el?el.value:''); },
   copyCode: ()=>{ try{ navigator.clipboard.writeText(gid).then(()=>toast('Code copied'),()=>{}); }catch(e){} },
   shareLink: ()=>{ const url=inviteLink(); if (navigator.share){ navigator.share({title:'Magical Athlete', text:'Join my Magical Athlete game! Room code '+gid, url}).catch(()=>{}); return; }
@@ -1138,7 +1173,7 @@ const A = {
     render();
   },
   open: d=>openGame(d.id),
-  lobby: ()=>{ closeGame(); if (netOK) local=false; view='lobby'; joinErr=''; try{location.hash='';}catch(e){} render(); },
+  lobby: ()=>{ closeGame(); if (netOK) local=false; view='lobby'; joinErr=''; screenOn=false; document.body.classList.remove('tvmode'); try{location.hash='';}catch(e){} render(); },
   del: d=>deleteTable(d.id),
   join: ()=>joinTable(),
   leave: ()=>leaveTable(),
@@ -1253,6 +1288,7 @@ function render(){
   try{ syncStage(); }catch(e){ console.error(e); }
   if (document.getElementById('d2slot')) mountDie2();
   window.scrollTo(0, sy);
+  try{ updateDock(); }catch(e){ console.error(e); }
   scheduleBots();
 }
 function renderLobby(){
@@ -1261,9 +1297,11 @@ function renderLobby(){
       <button class="${homePick==='bag'?'on':''}" data-a="homePick" data-p="bag">🎒 Grab bag</button></div>`;
   const online = !netOK ? `<p class="note">Online play isn't available in this view. You can still play on this device.</p>` : `
       ${FB?`<label class="lbl" for="nick">Your name</label><input id="nick" maxlength="20" value="${esc(FB.name&&!/^Player [A-Z0-9]{4}$/.test(FB.name)?FB.name:'')}" placeholder="e.g. Kyle">`:''}
-      <div class="row" style="margin-top:10px"><button class="big" data-a="create" ${busy?'disabled':''}>Create a game</button></div>
+      <div class="row wrap" style="margin-top:10px"><button class="big" data-a="create" ${busy?'disabled':''}>Create a game</button><button data-a="createTV" ${busy?'disabled':''}>📺 Host on a TV</button></div>
+      <p class="small muted">On a TV (Fire TV: use the Silk browser), tap <b>Host on a TV</b>. The TV shows the board; everyone plays from their phones, from anywhere.</p>
       <label class="lbl" for="jcode">…or join with a room code</label>
-      <div class="row"><input id="jcode" maxlength="6" placeholder="ABCDE" style="text-transform:uppercase;flex:2;letter-spacing:3px" value="${esc(pendingCode)}"><button data-a="joinCode" style="flex:1" ${busy?'disabled':''}>Join</button></div>
+      <div class="row"><input id="jcode" maxlength="6" placeholder="ABCDE" style="text-transform:uppercase;flex:2;letter-spacing:3px" value="${esc(pendingCode)}"><button data-a="joinCode" style="flex:1" ${busy?'disabled':''}>Join</button><button class="ghost" data-a="watchCode" style="flex:1" ${busy?'disabled':''} title="Show this game on this screen without taking a seat">📺 Watch</button></div>
+      <p class="small muted">Got another TV somewhere else? Open this page on it, type the room code and tap <b>📺 Watch</b>. Every screen shows the same game live.</p>
       <p class="small muted">Create a game, then send your friends the room code or link.</p>`;
   return `<div class="hero"><p class="muted">Draft absurd racers, race four times, score the most points. 2–6 players.</p></div>
   <div class="grid2">
@@ -1292,7 +1330,8 @@ function renderGame(){
   return h;
 }
 function renderSetup(){
-  const host = isHost();
+  const seatedFirst = !local && G.tv && joins.length && joins.find(j=>!isBotUid(j.uid)) && joins.find(j=>!isBotUid(j.uid)).uid===me;
+  const host = isHost() || !!seatedFirst;
   let players;
   if (local) players = `<div class="plist">${localNames.map((n,i)=>`<div class="prow"><span class="dot" style="background:${COLORS[i]}"></span><input data-ln="${i}" value="${esc(n)}" maxlength="20"><button class="ghost who ${localBots[i]?'on':''}" data-a="botToggle" data-i="${i}" title="Tap to switch human / computer">${localBots[i]?'🤖':'🙂'}</button></div>`).join('')}</div>
     <div class="row wrap"><button class="ghost" data-a="addLocal" ${localNames.length>=6?'disabled':''}>+ Player</button><button class="ghost" data-a="addCpu" ${localNames.length>=6?'disabled':''}>+ 🤖 Computer</button><button class="ghost" data-a="rmLocal" ${localNames.length<=2?'disabled':''}>− Remove last</button><button class="ghost" data-a="allCpu">👀 All computers (watch)</button></div>`;
@@ -1305,7 +1344,7 @@ function renderSetup(){
   const n = local ? localNames.length : joins.length;
   const k = n===2 ? 2 : G.settings.k;
   const roomCard = local ? '' : `<section class="panel" style="text-align:center"><div class="muted small">Room code</div><div class="code">${esc(gid)}</div>
-      <p class="small muted">Send this code to your friends. They open this page and choose <b>Join</b>, or they can use the link.</p>
+      <p class="small muted">${G.tv?'Grab your phones! Open this page and <b>Join</b> with this code, or scan the QR code. Other TVs can tap <b>📺 Watch</b> with the same code.':'Send this code to your friends. They open this page and choose <b>Join</b>, or they can use the link. Any other screen can tap <b>📺 Watch</b> to show the game.'}</p>
       ${/^https?:/.test(location.protocol) && !/claude/.test(location.host) ? `<img class="qr" alt="QR code to join" src="${QR.dataURL(inviteLink(),5,'#2b2236','#ffffff')}">` : ''}
       <div class="row wrap" style="justify-content:center"><button class="ghost" data-a="copyCode">Copy code</button><button class="ghost" data-a="shareLink">${navigator.share?'Share link':'Copy link'}</button></div></section>`;
   const sched = G.settings.schedule.join(',');
@@ -1354,7 +1393,7 @@ function renderSelect(){
       <button class="big" data-a="confirmSel" data-s="${doSeat}" ${selPicks.length===k&&!busy?'':'disabled'}>Lock in</button>`;
     const usedL = S.used.length ? `<p class="small muted">Already raced: ${S.used.map(r=>R_(r).e+' '+esc(R_(r).n)).join(', ')}</p>` : '';
     h += usedL;
-  } else h += `<p class="muted">Locked in. Waiting for everyone else…</p>`;
+  } else h += `<p class="muted">${mySeats().length?'Locked in. Waiting for everyone else…':'Players are choosing their racers…'}</p>`;
   h += lastResults();
   return h + `</section>`;
 }
@@ -1532,13 +1571,194 @@ function mountDie2(){
   D2.cube.style.transform = `rotateX(${D2.ax}deg) rotateY(${D2.ay}deg)`;
 }
 
+// ===== Voice chat (free, peer-to-peer WebRTC; Firebase only passes the connection details) =====
+const VC = {on:false, mic:false, ptt:false, talking:false, stream:null, peers:{}, present:{}, unsub:[], hb:null, ctx:null, meters:{}, open:false, gid:null, err:''};
+const ICE = [{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+function voiceAvailable(){ return !!(FB && gid && gid!=='local' && !local && window.RTCPeerConnection && view==='game'); }
+function vDoc(p){ return FB.db.doc('games/'+VC.gid+'/'+p); }
+async function voiceJoin(withMic){
+  if (VC.on || !voiceAvailable()) return;
+  VC.err=''; VC.gid=gid;
+  try{
+    VC.ctx = VC.ctx || new (window.AudioContext||window.webkitAudioContext)();
+    if (VC.ctx.state==='suspended') await VC.ctx.resume();
+  }catch(e){}
+  if (withMic){
+    try{
+      VC.stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+      VC.mic = true; meter('me', VC.stream);
+    }catch(e){ VC.err = 'Microphone blocked. Allow the mic for this site in your browser settings, then try again. You can still listen.'; VC.stream=null; VC.mic=false; }
+  }
+  VC.on = true; VC.talking = VC.mic && !VC.ptt; setMicEnabled();
+  await presence();
+  VC.hb = setInterval(presence, 20000);
+  VC.unsub.push(FB.db.collection('games/'+VC.gid+'/voice').onSnapshot(s=>{
+    const now = Date.now(), seen = {};
+    s.docs.forEach(d=>{ const v=d.data(); if (v.uid!==me && now-(v.at||0) < 70000) seen[v.uid]=v; });
+    VC.present = seen;
+    for (const u in seen) ensurePeer(u);
+    for (const u in VC.peers) if (!seen[u]) dropPeer(u);
+    updateDock();
+  }, e=>{ VC.err='Voice could not connect ('+(e.code||'error')+').'; updateDock(); }));
+  updateDock();
+}
+async function presence(){ if (!VC.on) return; try{ await vDoc('voice/'+me).set({uid:me, at:Date.now(), mic:VC.mic && VC.talking}); }catch(e){} }
+function voiceLeave(){
+  if (!VC.on) return;
+  VC.on=false; clearInterval(VC.hb); VC.unsub.forEach(u=>{ try{u();}catch(e){} }); VC.unsub=[];
+  for (const u in VC.peers) dropPeer(u);
+  if (VC.stream){ VC.stream.getTracks().forEach(t=>t.stop()); VC.stream=null; }
+  try{ vDoc('voice/'+me).delete(); }catch(e){}
+  VC.mic=false; VC.talking=false; VC.present={}; delete VC.meters.me; updateDock();
+}
+function setMicEnabled(){ if (VC.stream) VC.stream.getAudioTracks().forEach(t=>t.enabled = VC.talking); }
+function toggleMute(){ if (!VC.mic) return; VC.talking=!VC.talking; setMicEnabled(); presence(); updateDock(); }
+function pttDown(){ if (!VC.mic || !VC.ptt) return; VC.talking=true; setMicEnabled(); presence(); updateDock(); }
+function pttUp(){ if (!VC.mic || !VC.ptt) return; VC.talking=false; setMicEnabled(); presence(); updateDock(); }
+
+function pairId(a,b){ return a<b ? a+'__'+b : b+'__'+a; }
+function makePC(u){
+  const pc = new RTCPeerConnection({iceServers:ICE});
+  if (VC.stream) VC.stream.getAudioTracks().forEach(t=>pc.addTrack(t, VC.stream));
+  else pc.addTransceiver('audio', {direction:'recvonly'});
+  pc.ontrack = e=>{
+    const P = VC.peers[u]; if (!P) return;
+    const st = e.streams[0] || new MediaStream([e.track]);
+    if (!P.audio){ P.audio = new Audio(); P.audio.autoplay = true; P.audio.playsInline = true; document.body.appendChild(P.audio); }
+    P.audio.srcObject = st; P.audio.play().catch(()=>{ VC.needTap=true; updateDock(); });
+    meter(u, st);
+  };
+  pc.onconnectionstatechange = ()=>{
+    const P = VC.peers[u]; if (!P || P.pc!==pc) return;
+    P.state = pc.connectionState; updateDock();
+    if (pc.connectionState==='failed' && me<u) setTimeout(()=>{ if (VC.peers[u] && VC.peers[u].pc===pc) restartPeer(u); }, 1500);
+  };
+  return pc;
+}
+function gathered(pc){
+  return new Promise(res=>{
+    if (pc.iceGatheringState==='complete') return res();
+    const t = setTimeout(res, 3000);
+    pc.addEventListener('icegatheringstatechange', ()=>{ if (pc.iceGatheringState==='complete'){ clearTimeout(t); res(); } });
+  });
+}
+async function ensurePeer(u){
+  if (VC.peers[u]) return;
+  const P = VC.peers[u] = {pc:null, state:'new', ts:0, audio:null, unsub:null};
+  const ref = vDoc('rtc/'+pairId(me,u));
+  if (me<u){
+    // I make the offer
+    await offerTo(u);
+    P.unsub = ref.onSnapshot(s=>{ const d=s.exists?s.data():null; const Q=VC.peers[u]; if (!d || !Q || !d.answer || d.ats!==Q.ts) return;
+      if (Q.pc.signalingState==='have-local-offer') Q.pc.setRemoteDescription(d.answer).catch(()=>{}); });
+  } else {
+    // I answer their offers
+    P.unsub = ref.onSnapshot(async s=>{ const d=s.exists?s.data():null; const Q=VC.peers[u]; if (!d || !Q || !d.offer || d.ts<=Q.ts) return;
+      Q.ts = d.ts;
+      if (Q.pc) try{ Q.pc.close(); }catch(e){}
+      const pc = Q.pc = makePC(u);
+      try{
+        await pc.setRemoteDescription(d.offer);
+        await pc.setLocalDescription(await pc.createAnswer());
+        await gathered(pc);
+        if (VC.peers[u] && VC.peers[u].pc===pc) await ref.set({answer:{type:pc.localDescription.type, sdp:pc.localDescription.sdp}, ats:d.ts}, {merge:true});
+      }catch(e){ console.error(e); }
+    });
+  }
+}
+async function offerTo(u){
+  const P = VC.peers[u]; if (!P) return;
+  if (P.pc) try{ P.pc.close(); }catch(e){}
+  const pc = P.pc = makePC(u);
+  try{
+    await pc.setLocalDescription(await pc.createOffer());
+    await gathered(pc);
+    if (!VC.peers[u] || VC.peers[u].pc!==pc) return;
+    P.ts = Date.now();
+    await vDoc('rtc/'+pairId(me,u)).set({offer:{type:pc.localDescription.type, sdp:pc.localDescription.sdp}, ts:P.ts, answer:null, ats:0});
+  }catch(e){ console.error(e); }
+}
+function restartPeer(u){ if (me<u) offerTo(u); }
+function dropPeer(u){
+  const P = VC.peers[u]; if (!P) return;
+  try{ P.unsub && P.unsub(); }catch(e){}
+  try{ P.pc && P.pc.close(); }catch(e){}
+  if (P.audio){ P.audio.srcObject=null; P.audio.remove(); }
+  delete VC.peers[u]; delete VC.meters[u];
+}
+// who's talking: a tiny level meter per voice
+function meter(key, stream){
+  try{
+    const ctx = VC.ctx; if (!ctx) return;
+    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 256; src.connect(an);
+    VC.meters[key] = {an, buf:new Uint8Array(an.fftSize), lvl:0};
+  }catch(e){}
+}
+function meterLoop(){
+  requestAnimationFrame(meterLoop);
+  if (!VC.on) return;
+  for (const k in VC.meters){
+    const m = VC.meters[k]; m.an.getByteTimeDomainData(m.buf);
+    let s=0; for (let i=0;i<m.buf.length;i++){ const v=(m.buf[i]-128)/128; s+=v*v; }
+    const rms = Math.sqrt(s/m.buf.length); m.lvl = Math.max(rms, m.lvl*0.85);
+    const el = document.querySelector(`#vdock [data-vu="${k}"]`); if (el) el.classList.toggle('speaking', m.lvl>0.04 && (k!=='me' || VC.talking));
+  }
+}
+requestAnimationFrame(meterLoop);
+
+// the little voice dock (bottom-left on every game screen)
+function updateDock(){
+  let el = document.getElementById('vdock');
+  const show = voiceAvailable() || VC.on;
+  if (!show){ if (el) el.remove(); if (VC.on && (!gid || gid!==VC.gid)) voiceLeave(); return; }
+  if (VC.on && gid!==VC.gid){ voiceLeave(); }
+  if (!el){ el=document.createElement('div'); el.id='vdock'; document.body.appendChild(el); hookDock(el); }
+  if (!VC.on){
+    el.className='closed';
+    el.innerHTML = VC.open ? `<div class="vcard"><b>🎙️ Voice chat</b><p>Talk with the other players while you play. Free, straight between devices.</p>
+        <div class="vrow"><button class="vb main" data-v="join">🎙️ Join with mic</button><button class="vb" data-v="listen">🔊 Just listen</button><button class="vb" data-v="close">✕</button></div>
+        ${VC.err?`<p class="verr">${esc(VC.err)}</p>`:''}<p class="vsm">Same room? Use headphones, or only one person's voice on, to avoid echo.</p></div>`
+      : `<button class="vfab" data-v="open" title="Voice chat">🎙️</button>`;
+    return;
+  }
+  el.className='on';
+  const people = Object.values(VC.present);
+  const st = u=>{ const P=VC.peers[u]; return !P||!P.pc ? 'connecting' : ({connected:'', connecting:'connecting', new:'connecting', failed:'can\'t connect', disconnected:'reconnecting'}[P.state]||''); };
+  el.innerHTML = `<div class="vcard">
+    <div class="vlist"><span class="vp" data-vu="me">${VC.mic?(VC.talking?'🎙️':'🔇'):'🔊'} You</span>${people.map(p=>`<span class="vp" data-vu="${esc(p.uid)}">${p.mic?'🎙️':'🔇'} ${esc(uname(p.uid,0))}${st(p.uid)?` <i>${st(p.uid)}</i>`:''}</span>`).join('') || '<span class="vsm">Waiting for others to join voice…</span>'}</div>
+    <div class="vrow">
+      ${VC.mic ? (VC.ptt ? `<button class="vb main ptt ${VC.talking?'hot':''}" data-v="ptt">${VC.talking?'Talking…':'Hold to talk'}</button>` : `<button class="vb main ${VC.talking?'':'muted'}" data-v="mute">${VC.talking?'🎙️ Mute':'🔇 Unmute'}</button>`)
+        + `<button class="vb" data-v="mode" title="Switch between open mic and push-to-talk">${VC.ptt?'Open mic':'Push-to-talk'}</button>` : `<button class="vb" data-v="addmic">🎙️ Use mic</button>`}
+      ${VC.needTap?`<button class="vb" data-v="unlock">🔈 Tap for sound</button>`:''}
+      <button class="vb" data-v="leave">Leave voice</button></div>
+    ${VC.err?`<p class="verr">${esc(VC.err)}</p>`:''}</div>`;
+}
+function hookDock(el){
+  el.addEventListener('click', e=>{
+    const b = e.target.closest('[data-v]'); if (!b) return; const v=b.dataset.v;
+    if (v==='open'){ VC.open=true; updateDock(); }
+    else if (v==='close'){ VC.open=false; updateDock(); }
+    else if (v==='join') voiceJoin(true);
+    else if (v==='listen') voiceJoin(false);
+    else if (v==='leave'){ voiceLeave(); VC.open=false; updateDock(); }
+    else if (v==='mute') toggleMute();
+    else if (v==='mode'){ VC.ptt=!VC.ptt; VC.talking=!VC.ptt; setMicEnabled(); presence(); updateDock(); }
+    else if (v==='addmic'){ voiceLeave(); voiceJoin(true); }
+    else if (v==='unlock'){ VC.needTap=false; for (const u in VC.peers){ const a=VC.peers[u].audio; if (a) a.play().catch(()=>{}); } try{ VC.ctx && VC.ctx.resume(); }catch(e){} updateDock(); }
+  });
+  const down = e=>{ if (e.target.closest('[data-v="ptt"]')){ e.preventDefault(); pttDown(); } };
+  const up = ()=>{ if (VC.ptt && VC.talking) pttUp(); };
+  el.addEventListener('pointerdown', down); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+}
+window.addEventListener('pagehide', ()=>{ if (VC.on) try{ vDoc('voice/'+me).delete(); }catch(e){} });
+
 // ===== Race lineup announcement =====
 function introKey(){ return (gid||'')+':'+(G.history?G.history.length:0)+':'+G.raceNo+':'+G.race.tokens.map(t=>t.rid+t.seat).join(','); }
 function introOpen(){ return !!(G && G.status==='race' && G.race && G.race.turn<=0 && G.race.tokens.every(t=>t.pos===0) && !introSeen.has(introKey())); }
 function renderIntro(){
   const R = G.race;
   return `<div class="modal intro"><div class="sheet"><h2>Race ${G.raceNo+1} lineup · ${R.track==='wild'?'🌪️ Wild Woods':'🌤️ Mild Mile'}</h2>
-    ${G.seats.every((_,i)=>isBot(i))?'<p class="small muted">Starting in a few seconds…</p>':''}<p class="small muted">In turn order. You can re-read any power during the race by tapping the racer in the list.</p>
+    ${G.seats.every((_,i)=>isBot(i))||screenOn?'<p class="small muted">Starting in a few seconds…</p>':''}<p class="small muted">In turn order. You can re-read any power during the race by tapping the racer in the list.</p>
     <div class="lineup">${R.tokens.map((t,i)=>{ const S=G.seats[t.seat], r=R_(t.rid);
       return `<div class="lu" style="--c:${S.color}">${ART[t.rid]?`<img class="cardart" src="${ART[t.rid]}" alt="">`:`<div class="ce">${r.e}</div>`}
         <div class="lutxt"><div class="lun">${i+1}. <b style="color:${S.color}">${esc(pname(t.seat))}</b></div><div class="cn">${esc(r.n)}</div><div class="ct">${esc(r.t)}</div>${r.x?`<div class="cx">${esc(r.x)}</div>`:''}</div></div>`; }).join('')}</div>
@@ -1635,7 +1855,7 @@ function stageBusy(){ if (typeof S3==='undefined' || !S3.ok || S3.stage.style.di
   for (const k in S3.pieces){ const P=S3.pieces[k]; if (P.path.length || P.flipA) return true; } return false; }
 let introTimer = null;
 function scheduleBots(){
-  if (G && introOpen() && G.seats.every((_,i)=>isBot(i)) && (local||isHost()) && !introTimer){
+  if (G && introOpen() && (G.seats.every((_,i)=>isBot(i)) || screenOn) && !introTimer){
     const k = introKey();
     introTimer = setTimeout(()=>{ introTimer=null; if (introOpen() && introKey()===k){ introSeen.add(k); render(); } }, 5000);
   }
