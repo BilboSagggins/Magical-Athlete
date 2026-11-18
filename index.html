@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Magical Athlete">
+<meta name="theme-color" content="#000000">
 <title>Magical Athlete</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <!-- ============================================================
      FIREBASE SETTINGS
      Firebase console → ⚙️ Project settings → General → Your apps → Config
@@ -27,8 +34,9 @@ window.FIREBASE_CONFIG = {
 <style>
 :root{--bg:#fff7ec;--ink:#2b2236;--muted:#7a6f86;--panel:#fff;--line:#eadfce;--accent:#ff5d73;--accent2:#5b5bf7;--mild:#fdf1dc;--wild:#e3f4e1}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 Nunito,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-#app{max-width:760px;margin:0 auto;padding:10px 10px 60px}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;-webkit-tap-highlight-color:transparent;background:var(--bg);color:var(--ink);font:15px/1.4 Nunito,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+#app{max-width:760px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
 h2,h3,h4,.brand{font-family:Fredoka,Nunito,sans-serif}
 h2{margin:.2em 0 .5em;font-size:22px} h3{margin:.2em 0 .6em} h4{margin:1.1em 0 .4em;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
 header{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 10px}
@@ -44,7 +52,7 @@ button.big.dice{background:var(--accent2);margin:0;padding:8px 10px}
 button.ghost{box-shadow:none;border-width:1.5px;padding:6px 10px;font-weight:600}
 button.on{background:var(--ink);color:#fff}
 button.x{padding:6px 9px}
-select,input{font:inherit;padding:7px 9px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+select,input{font:inherit;font-size:16px;padding:7px 9px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
 .panel{background:var(--panel);border:2px solid var(--ink);border-radius:18px;padding:14px;box-shadow:0 4px 0 var(--ink);margin-bottom:14px}
 .muted{color:var(--muted)} .small{font-size:13px}
 .row{display:flex;gap:8px;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1}
@@ -111,7 +119,7 @@ select,input{font:inherit;padding:7px 9px;border:1.5px solid var(--line);border-
 .pboard .tok{width:5.4cqw;height:5.4cqw;border-width:.45cqw;margin:0 -1.1cqw;box-shadow:0 1px 3px #0008;position:relative}
 .pboard .tok.cur{z-index:2;box-shadow:0 0 0 .5cqw var(--c),0 1px 3px #0008}
 .zbtn{margin-top:6px;font-size:13px}
-#stage{position:fixed;inset:0;z-index:35;background:#000;display:none;overscroll-behavior:none}
+#stage{position:fixed;inset:0;height:100vh;height:100dvh;z-index:35;background:#000;display:none;overscroll-behavior:none}
 #c3{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #hud{position:absolute;inset:0;pointer-events:none;font-family:Nunito,system-ui,sans-serif;color:#fff}
 #hud > *{pointer-events:auto}
@@ -126,6 +134,7 @@ body.staged{overflow:hidden}
 .hb.on{background:#fff;color:#000}
 .h-cap{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top) + 56px));transform:translateX(-50%);max-width:min(560px,90vw);background:#000000b0;border:1px solid #ffffff30;border-radius:12px;padding:6px 12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
 .h-cap.on{opacity:1}
+@media (orientation:portrait){ .h-cap{top:calc(env(safe-area-inset-top) + 120px)} }
 .h-cap b{filter:brightness(1.4)}
 .h-hint{position:absolute;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#000000b8;border:1px solid #ffffff38;border-radius:999px;padding:7px 14px;font-size:14px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .h-hint b{filter:brightness(1.35)}
@@ -217,6 +226,9 @@ body.staged #vdock{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 90px)}
 .vp.speaking{border-color:#1e9e5a;box-shadow:0 0 0 3px #1e9e5a55}
 .vsm{font-size:11px;color:var(--muted)}
 .verr{color:#b3261e;font-size:12px}
+.iostip{position:relative;background:#fff3c4;border:1.5px dashed #d8b400;border-radius:12px;padding:8px 36px 8px 10px;margin-bottom:10px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.iostip .x{position:absolute;right:6px;top:6px}
+.shareico{display:inline-block;border:1.5px solid currentColor;border-radius:4px;padding:0 3px;font-size:11px}
 .err{background:#ffe1e4;border:1.5px solid var(--accent);border-radius:10px;padding:8px 10px;margin-top:10px;font-size:13px}
 details summary{cursor:pointer;font-weight:700}
 .invite{background:#eef3ff;border:2px dashed var(--accent2);border-radius:12px;padding:8px 10px;margin-bottom:10px;display:flex;flex-direction:column;gap:4px}
@@ -246,8 +258,8 @@ details summary{cursor:pointer;font-weight:700}
 .result{text-align:center;font-size:17px;margin:12px 0;display:flex;flex-direction:column;gap:6px;align-items:center}
 .final{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
 .frow{display:flex;gap:10px;padding:10px 12px;border-radius:12px;border:2px solid var(--c);font-size:17px}
-.modal{position:fixed;inset:0;background:#0006;z-index:40;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:#fff;width:100%;max-width:760px;max-height:85vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px}
+.modal{position:fixed;inset:0;padding-bottom:env(safe-area-inset-bottom);background:#0006;z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#fff;width:100%;max-width:760px;max-height:85vh;max-height:85dvh;overflow:auto;border-radius:18px 18px 0 0;padding:16px}
 .loglist{font-size:13px;display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
 @media (max-width:420px){.cell{min-height:48px}.tok{width:30px;height:30px;font-size:12px;border-width:2px}.num{font-size:9px}}
 </style>
@@ -1203,6 +1215,7 @@ const A = {
     }catch(e){}
     render();
   },
+  iosTipOff: ()=>{ try{ localStorage.setItem('maIosTip','1'); }catch(e){} render(); },
   closecard: ()=>{ S3.cardTi=null; render(); },
   showcard: d=>{ S3.cardTi=+d.ti; render(); },
   trk: ()=>{ trackerOpen=!trackerOpen; render(); },
@@ -1307,6 +1320,13 @@ function render(){
   try{ updateDock(); }catch(e){ console.error(e); }
   scheduleBots();
 }
+function iosTip(){
+  const ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const standalone = window.navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+  let hide=false; try{ hide = localStorage.getItem('maIosTip')==='1'; }catch(e){}
+  if (!ios || standalone || hide || !/^https?:/.test(location.protocol)) return '';
+  return `<div class="iostip"><b>📱 Play full screen on iPhone</b><div>Safari can't hide its address bar from inside a web page. Tap <b>Share</b> <span class="shareico">⬆︎</span> → <b>Add to Home Screen</b>, then open Magical Athlete from your home screen: no address bar, the whole screen is the game.</div><button class="ghost x" data-a="iosTipOff">✕</button></div>`;
+}
 function renderLobby(){
   const pickRow = `<div class="row wrap"><span class="small">Getting racers:</span>
       <button class="${homePick==='draft'?'on':''}" data-a="homePick" data-p="draft">📜 Draft</button>
@@ -1319,7 +1339,7 @@ function renderLobby(){
       <div class="row"><input id="jcode" maxlength="6" placeholder="ABCDE" style="text-transform:uppercase;flex:2;letter-spacing:3px" value="${esc(pendingCode)}"><button data-a="joinCode" style="flex:1" ${busy?'disabled':''}>Join</button><button class="ghost" data-a="watchCode" style="flex:1" ${busy?'disabled':''} title="Show this game on this screen without taking a seat">📺 Watch</button></div>
       <p class="small muted">Got another TV somewhere else? Open this page on it, type the room code and tap <b>📺 Watch</b>. Every screen shows the same game live.</p>
       <p class="small muted">Create a game, then send your friends the room code or link.</p>`;
-  return `<div class="hero"><p class="muted">Draft absurd racers, race four times, score the most points. 2–6 players.</p></div>
+  return iosTip() + `<div class="hero"><p class="muted">Draft absurd racers, race four times, score the most points. 2–6 players.</p></div>
   <div class="grid2">
     <section class="panel"><h2>🌐 Play online</h2>${online}${joinErr?`<div class="err">${esc(joinErr)}</div>`:''}</section>
     <section class="panel"><h2>📱 On this device</h2>
@@ -2272,7 +2292,14 @@ function hookStage(){
     if (!VP3) return;
     const D=S3.die; let die=false;
     if (canThrow() && D.state==='idle' && !(S3.holdUntil>now3())){ const[sx,sy]=project3(D.p); die=Math.hypot(sx-e.clientX,sy-e.clientY)<70; }
-    gest={x0:e.clientX,y0:e.clientY,t0:now3(),moved:0,yaw:S3.cam.yaw,pitch:S3.cam.pitch,die,hist:[]};
+    // pick up my own piece when it has somewhere to go
+    let piece=false;
+    if (!die && S3.targets.length && !(S3.holdUntil>now3()) && G.race.turn>=0){
+      const P=S3.pieces[G.race.turn];
+      if (P && !P.path.length){ for (const pt of [[P.x,.05,P.z], P.wc||[P.x,.3,P.z]]){ const [sx,sy]=project3(pt); if (Math.hypot(sx-e.clientX,sy-e.clientY)<60) piece=true; } }
+    }
+    gest={x0:e.clientX,y0:e.clientY,t0:now3(),moved:0,yaw:S3.cam.yaw,pitch:S3.cam.pitch,die,piece,hist:[]};
+    if (piece){ const P=S3.pieces[G.race.turn]; gest.home=[P.x,P.z]; }
     if (die){ D.state='hold'; const p=planeHit(e.clientX,e.clientY,1.0); if(p) gest.hist.push([p,e.timeStamp||now3()]); }
   });
   cv.addEventListener('pointermove',e=>{
@@ -2280,6 +2307,12 @@ function hookStage(){
     if (pinch && ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); S3.cam.user=true; S3.cam.dist=clamp3(pinch.dist*pinch.d/Math.max(20,d), S3.fit*.3, S3.fit*1.6); return; }
     if (!gest) return;
     const dx=e.clientX-gest.x0, dy=e.clientY-gest.y0; gest.moved=Math.max(gest.moved,Math.hypot(dx,dy));
+    if (gest.piece){
+      if (gest.moved<6) return;
+      const P=S3.pieces[G.race.turn], hit=planeHit(e.clientX,e.clientY,.35);
+      if (P && hit){ P.dragging=true; P.path=[]; P.x=hit[0]; P.z=hit[2]; P.y=.35; S3.hover=nearTarget(hit[0],hit[2],.6); }
+      return;
+    }
     if (gest.die){
       const p=planeHit(e.clientX,e.clientY,1.0);
       if (p){ const [bx,bz]=dieBounds(); S3.die.p=[clamp3(p[0],-bx,bx),1.0,clamp3(p[2],-bz,bz)]; gest.hist.push([S3.die.p.slice(), e.timeStamp||now3()]); if (gest.hist.length>8) gest.hist.shift(); }
@@ -2293,6 +2326,18 @@ function hookStage(){
     if (!gest) return;
     const g=gest; gest=null;
     if (g.die){ releaseDie(g); return; }
+    if (g.piece && g.moved>=6){
+      const R=G.race, P=S3.pieces[R.turn]; S3.hover=null;
+      if (!P) return;
+      P.dragging=false;
+      const tg = nearTarget(P.x,P.z,.6);
+      if (tg && S3.targets.includes(tg)){
+        const [x,z]=spotXZ(R.track,posKey(R,tg.pos)); P.path=[{x,z,h:.12,d:.15}]; P.last=posKey(R,tg.pos); P.dropped=true;
+        const seat=R.tokens[R.turn].seat; S3.targets=[];
+        mutate(gg=>act(gg, seat, tg.a));
+      } else { P.path=[{x:g.home[0],z:g.home[1],h:.3,d:.3}]; }
+      return;
+    }
     if (g.moved<10 && now3()-g.t0<600) tapAt(e.clientX,e.clientY);
   };
   cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
@@ -2318,6 +2363,7 @@ function releaseDie(g){
   });
   render();
 }
+function nearTarget(x,z,r){ let best=null, bd=r; for (const tg of S3.targets){ const [tx,tz]=spotXZ(G.race.track,posKey(G.race,tg.pos)); const d=Math.hypot(tx-x,tz-z); if (d<bd){ bd=d; best=tg; } } return best; }
 function tapAt(cx,cy){
   const p=planeHit(cx,cy,0); if (!p) return;
   let best=null, bd=.5;
@@ -2340,9 +2386,15 @@ function fitView3(){
   const D=BW/BOARD[G.race.track].ar, asp=W3/H3||1, f=40*Math.PI/180, t=Math.tan(f/2);
   const side=Math.abs(Math.sin(S3.cam.yaw))>.7;
   const hw=(side?D:BW)/2+.35, hv=(side?BW:D)/2+.35;
-  S3.fit=Math.max(hw/(t*asp), hv/t)*1.02;
+  // keep the board clear of the top bar (scores + racer faces) and the hint at the bottom
+  const portrait = W3/H3<.9, small = H3<480;
+  const top = portrait ? 118 : (small ? 84 : 96), bot = (G.seats.some((_,i)=>isBot(i)) ? 96 : 56);
+  const fr = Math.max(.45, (H3-top-bot)/H3);
+  S3.fit=Math.max(hw/(t*asp), hv/(t*fr))*1.02;
+  S3.shift = ((top-bot)/2)/H3 * 2*t;   // fraction of distance to slide the view so the board sits in the clear area
 }
-function resetView3(){ S3.cam.user=false; S3.cam.yaw = (W3/H3<.9) ? -Math.PI/2 : 0; S3.cam.pitch=1.3; S3.cam.tx=0; S3.cam.tz=0; fitView3(); S3.cam.dist=S3.fit; }
+function resetView3(){ S3.cam.user=false; S3.cam.yaw = (W3/H3<.9) ? -Math.PI/2 : 0; S3.cam.pitch=1.3; fitView3(); S3.cam.dist=S3.fit; centerView3(); }
+function centerView3(){ const c=S3.cam, off=(S3.shift||0)*c.dist; c.tx = -Math.sin(c.yaw)*off; c.tz = -Math.cos(c.yaw)*off; }
 
 // ---- per-frame drawing ----
 function frame3(){
@@ -2383,7 +2435,7 @@ function frame3(){
   const rolling = S3.die.state==='roll' || S3.holdUntil>tn;
   const me = R.turn>=0 && R.tokens[R.turn] ? G.seats[R.tokens[R.turn].seat] : null;
   if (!rolling && me) for (const tg of S3.targets){
-    const [x,z]=spotXZ(track,posKey(R,tg.pos)); const k=.62+.06*Math.sin(time*5);
+    const [x,z]=spotXZ(track,posKey(R,tg.pos)); const k=(tg===S3.hover?.9:.62)+.06*Math.sin(time*5);
     drawT(S3.flat, M4.trs([x,.01,z],Q.id(),[k,1,k]), S3.tex.ring, [...hexRGB3(me.color),1], 0);
   }
   const yawQ=Q.axis([0,1,0],c.yaw);
@@ -2412,7 +2464,7 @@ function frame3(){
         hop = A.to ? Math.sin(Math.min(1,f*1.6)*Math.PI)*.35 + (f>.8?Math.sin((f-.8)/.2*Math.PI)*.06:0) : Math.sin(f*Math.PI)*.25;
         if (f>=1){ P.flip=A.to; P.flipA=null; } } }
     let sc=1; if (P.out){ const f=Math.min(1,(tn-P.outT)/600); sc=1-f; hop+=f*.4; if (f>=1) continue; }
-    const bob = P.cur && !P.path.length && !P.flipA && P.flip<.01 ? Math.abs(Math.sin(time*3))*.06 : 0;
+    const bob = P.cur && !P.dragging && !P.path.length && !P.flipA && P.flip<.01 ? Math.abs(Math.sin(time*3))*.06 : 0;
     const fl=P.flip, lift=P.y+hop+bob;
     // base puck
     drawL(S3.base, M4.trs([P.x, lift*(1-fl*.0), P.z], yawQ, [sc,sc,sc]), [...P.col,1]);
@@ -2471,8 +2523,8 @@ function hudHint(){
     if (o.needMM) return `${who}: predict the winner`;
     if (o.genius && geniusPick==null) return `${who}: predict your roll`;
     if (o.noMain) return `${who}: no main move this turn`;
-    return `${who}: pick up the die and throw it${S3.targets.length?' — or tap a glowing space':''}`; }
-  if (R.phase==='rolled'){ return `${who}: rolled <b>${R.ctx.roll}</b> — tap a glowing space to move${canThrow()?', or throw again':''}`; }
+    return `${who}: pick up the die and throw it${S3.targets.length?' — or drag your piece to a glowing space':''}`; }
+  if (R.phase==='rolled'){ return `${who}: rolled <b>${R.ctx.roll}</b> — drag your piece onto a glowing space (or tap it)${canThrow()?', or throw again':''}`; }
   return who;
 }
 function renderHud(){
